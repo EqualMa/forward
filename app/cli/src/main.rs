@@ -2,7 +2,7 @@
 extern crate clap;
 
 use forward::auth::ToAuthentication;
-use forward::block_on;
+use forward::tokio;
 use forward::server::{ForwardServer, ForwardServerConfig};
 use forward::target_addr::ToTargetAddr;
 use std::io;
@@ -64,6 +64,7 @@ async fn run() -> io::Result<()> {
     server.start().await
 }
 
-fn main() -> io::Result<()> {
-    block_on(run())
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    run().await
 }
