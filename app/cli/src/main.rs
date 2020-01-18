@@ -1,6 +1,12 @@
 #[macro_use]
 extern crate clap;
 
+use forward::auth::ToAuthentication;
+use forward::block_on;
+use forward::server::{ForwardServer, ForwardServerConfig};
+use forward::target_addr::ToTargetAddr;
+use std::io;
+
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
 #[derive(Clap)]
@@ -18,20 +24,46 @@ struct Opts {
     #[clap(short = "p", long = "proxy")]
     proxy: String,
 
-    /// proxy auth user if required
-    #[clap(short = "u", long = "user")]
-    proxy_user: Option<String>,
+    /// forward through proxy if specified
+    #[clap(short = "t", long = "target")]
+    target: String,
+
+    /// proxy auth username if required
+    #[clap(short = "U", long = "user")]
+    proxy_username: Option<String>,
 
     /// proxy auth password if required
-    #[clap(short = "p", long = "password")]
-    proxy_user: Option<String>,
+    #[clap(short = "P", long = "password")]
+    proxy_password: Option<String>,
 }
 
-fn main() {
+async fn run() -> io::Result<()> {
     let opts: Opts = Opts::parse();
 
     let bind = opts.bind;
     let proxy = opts.proxy;
+    let target = opts.target;
 
-    println!("Proxy {} {}", bind, proxy);
+    let username = opts.proxy_username;
+    let password = opts.proxy_password;
+
+    println!(
+        "Proxy {}>>>{}>>>{}\nAuth = {:?} : {:?}",
+        bind, proxy, target, username, password
+    );
+
+    let proxy_auth = (username, password).to_authentication().unwrap();
+    let mut server = ForwardServer::new(ForwardServerConfig {
+        bind_addr: bind.parse().unwrap(),
+        proxy: proxy.as_str().to_target_addr().unwrap(),
+        proxy_auth: proxy_auth,
+        target: target.as_str().to_target_addr().unwrap(),
+    })
+    .await;
+
+    server.start().await
+}
+
+fn main() -> io::Result<()> {
+    block_on(run())
 }
