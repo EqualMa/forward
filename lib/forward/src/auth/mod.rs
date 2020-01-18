@@ -17,6 +17,9 @@ impl Authentication {
     }
 }
 
+mod to_auth;
+pub use to_auth::ToAuthentication;
+
 #[cfg(test)]
 mod tests {
     use super::*;

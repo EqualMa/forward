@@ -14,10 +14,10 @@ pub use pipe::pipe;
 
 #[derive(Debug, PartialEq)]
 pub struct ForwardServerConfig {
-    bind_addr: SocketAddr,
-    proxy: SocketAddr,
-    proxy_auth: Authentication,
-    target: TargetAddr,
+    pub bind_addr: SocketAddr,
+    pub proxy: TargetAddr,
+    pub proxy_auth: Authentication,
+    pub target: TargetAddr,
 }
 
 pub enum ForwardServerState {
@@ -82,12 +82,19 @@ impl ForwardServer {
             let (socket, socket_addr) = accepted?;
             println!("Accepted at {}", socket_addr);
 
-            let proxy = self.config.proxy;
+            let proxy = self.config.proxy.clone();
             let proxy_auth = self.config.proxy_auth.clone();
             let target = self.config.target.clone();
 
             self.tasks.push(tokio::spawn(async move {
-                forward_tcp_to_socks5(socket, proxy, &proxy_auth, target).await
+                match proxy {
+                    TargetAddr::Ip(s) => {
+                        forward_tcp_to_socks5(socket, s, &proxy_auth, target).await
+                    }
+                    TargetAddr::Domain(d, p) => {
+                        forward_tcp_to_socks5(socket, (d.as_str(), p), &proxy_auth, target).await
+                    }
+                }
             }));
         }
 
