@@ -1,5 +1,5 @@
 [package]
-name = "forward-gui"
+name = "forward_gui"
 version = "0.1.0"
 authors = ["EqualMa <equalma@outlook.com>"]
 edition = "2018"
