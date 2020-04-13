@@ -34,7 +34,7 @@ async fn main() {
     // Initialize the UI library
     let ui = UI::init().expect("Couldn't initialize UI library");
     // Create a window into which controls can be placed
-    let mut win = Window::new(&ui, "MYZ\u{2665}XZJ", 200, 200, WindowType::NoMenubar);
+    let mut win = Window::new(&ui, "Forward", 200, 200, WindowType::NoMenubar);
 
     // Create a vertical layout to hold the controls
     let mut vbox = VerticalBox::new(&ui);
