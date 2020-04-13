@@ -20,12 +20,14 @@ pub struct ForwardServerConfig {
     pub target: TargetAddr,
 }
 
+#[derive(Debug)]
 pub enum ForwardServerState {
     Started,
     Stopping,
     Stopped,
 }
 
+#[derive(Debug)]
 pub struct ForwardServer {
     tasks: Vec<JoinHandle<io::Result<()>>>,
     // tasks: Vec<dyn std::future::Future<Output = io::Result<()>>>,
@@ -40,7 +42,7 @@ const STATE_STOPPING: u8 = 2;
 const STATE_STOPPED: u8 = 0;
 
 impl ForwardServer {
-    pub async fn new(config: ForwardServerConfig) -> ForwardServer {
+    pub fn new(config: ForwardServerConfig) -> ForwardServer {
         let (tx, rx) = watch::channel(0);
 
         ForwardServer {
@@ -52,7 +54,11 @@ impl ForwardServer {
         }
     }
 
-    pub async fn start(&mut self) -> io::Result<()> {
+    pub async fn start<T>(&mut self, stopper: Option<T>) -> io::Result<()>
+    where
+        T: std::future::Future + Send + Unpin + 'static,
+        T::Output: Send + 'static,
+    {
         match self.state {
             ForwardServerState::Stopped => {
                 self.state = ForwardServerState::Started;
@@ -72,10 +78,26 @@ impl ForwardServer {
         let mut listener = TcpListener::bind(bind_addr).await?;
         // println!("Server running on {}", bind_addr);
 
+        let mut stopper = match stopper {
+            Some(s) => Some(s.fuse()),
+            None => None,
+        };
         loop {
-            let accepted = select! {
-                accept = listener.accept().fuse() => accept,
-                recv = self.wait_till_state(STATE_STOPPING).fuse() => break,
+            let accepted = match stopper.as_mut() {
+                None => listener.accept().await,
+                Some(mut s) => select! {
+                    accept = listener.accept().fuse() => accept,
+                    recv = s => {
+                        self.state = ForwardServerState::Stopping;
+                        // TODO:
+                        match self.state_tx.broadcast(STATE_STOPPING) {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        };
+
+                        break;
+                    },
+                },
             };
             // try_select(to_accept, self.state_rx.recv()).await?;
 
@@ -98,33 +120,21 @@ impl ForwardServer {
             }));
         }
 
+        // TODO: error handling
+        println!("SERVER try_join_all...");
+        let res = try_join_all(&mut self.tasks).await;
+        println!("SERVER try_join_all done!");
+
+        self.tasks = vec![];
+
+        res?;
+
         self.state = ForwardServerState::Stopped;
         // TODO:
         match self.state_tx.broadcast(STATE_STOPPED) {
             Ok(_) => {}
             Err(_) => {}
         }
-
-        Ok(())
-    }
-
-    pub async fn stop(&mut self) -> io::Result<()> {
-        self.state = ForwardServerState::Stopping;
-
-        // TODO:
-        match self.state_tx.broadcast(STATE_STOPPING) {
-            Ok(_) => {}
-            Err(_) => {}
-        };
-
-        // TODO: error handling
-        let res = try_join_all(&mut self.tasks).await;
-
-        self.state = ForwardServerState::Stopped;
-
-        self.tasks = vec![];
-
-        res?;
 
         Ok(())
     }

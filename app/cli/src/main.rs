@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate clap;
 
+extern crate forward;
+extern crate tokio;
+
 use forward::auth::ToAuthentication;
-use forward::tokio;
 use forward::server::{ForwardServer, ForwardServerConfig};
 use forward::target_addr::ToTargetAddr;
 use std::io;
@@ -58,10 +60,10 @@ async fn run() -> io::Result<()> {
         proxy: proxy.as_str().to_target_addr().unwrap(),
         proxy_auth: proxy_auth,
         target: target.as_str().to_target_addr().unwrap(),
-    })
-    .await;
+    });
 
-    server.start().await
+    server.start(None::<tokio::task::JoinHandle<()>>).await
+    // server.start().await
 }
 
 #[tokio::main]
