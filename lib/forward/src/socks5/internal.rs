@@ -33,11 +33,11 @@ pub async fn forward_tcp_to_socks5(
     println!("[client] joined task done");
 
     // TODO: better error
-    match client.shutdown(Shutdown::Write) {
+    match client.shutdown(Shutdown::Both) {
         Ok(e) => e,
         Err(error) => eprintln!("[client] client <=> here shutdown with failue: {}", error),
     }
-    match proxy_stream.shutdown(Shutdown::Write) {
+    match proxy_stream.shutdown(Shutdown::Both) {
         Ok(e) => e,
         Err(error) => eprintln!("[client] client <=> here shutdown with failue: {}", error),
     }
